@@ -23,8 +23,10 @@ class OneHotEncoder:
     def fit(self, X):
         # Determine unique categories
         if self.categories == 'auto':
+            # If 'auto', compute unique categories for each column
             self.unique_categories = [np.unique(X[:, i]) for i in range(X.shape[1])]
         else:
+            # Otherwise, use the categories specified by the user
             self.unique_categories = self.categories
         
         # Determine indices of each category
@@ -39,22 +41,22 @@ class OneHotEncoder:
             raise ValueError("OneHotEncoder has not been fitted.")
         
         # Initialize empty one-hot encoded array
-        n_samples = X.shape[0]
-        n_features = sum(self.n_values_)
-        X_onehot = np.zeros((n_samples, n_features))
+            n_samples = X.shape[0] # 
+            n_features = sum(self.n_values_) #
+            X_onehot = np.zeros((n_samples, n_features)) #
         
         # Iterate over features and encode them one-by-one
-        feature_index = 0
-        for i in range(X.shape[1]):
-            category_index = self.category_indices[i]
-            values = X[:, i]
-            indices = np.searchsorted(category_index, values)
-            onehot = np.zeros((n_samples, len(category_index)))
-            onehot[np.arange(n_samples), indices] = 1
-            X_onehot[:, feature_index:feature_index+len(category_index)] = onehot
-            feature_index += len(category_index)
+            feature_index = 0
+            for i in range(X.shape[1]):
+                category_index = self.category_indices[i]
+                values = X[:, i]
+                indices = np.searchsorted(category_index, values)
+                onehot = np.zeros((n_samples, len(category_index)))
+                onehot[np.arange(n_samples), indices] = 1
+                X_onehot[:, feature_index:feature_index+len(category_index)] = onehot
+                feature_index += len(category_index)
             
-        return X_onehot
+            return X_onehot
     
     def fit_transform(self, X):
         self.fit(X)
@@ -110,7 +112,7 @@ class LabelEncoder:
 import numpy as np
 
 class train_test_split:
-    def __init__(self, test_size=0.2, random_state=None):
+    def __init__(self, test_size=0.8, random_state=None):
         self.test_size = test_size
         self.random_state = random_state
     
@@ -171,22 +173,31 @@ class ColumnTransformer:
 
 class ANN:
     def __init__(self, mode=1, architecture=None, activations=None):
+        # Initialize instance variables
         self.mode = mode
         self.layers = architecture
         self.activations = activations
         self.weights = []
         self.biases = []
+    
     def init_weights(self, X):
         if self.mode == 1:
+            # For the first layer, generate weights and biases based on input shape and first layer size
             self.weights.append(np.random.randn(X.shape[1], self.layers[0]))
             self.biases.append(np.zeros((1, self.layers[0])))
+            # For subsequent layers, generate weights and biases based on previous layer size and current layer size
             for i in range(1, len(self.layers)):
                 self.weights.append(np.random.randn(self.layers[i - 1], self.layers[i]))
                 self.biases.append(np.zeros((1, self.layers[i])))
         elif self.mode == 2:
             pass
+      
+    def sigmoid(self, z):
+        # Sigmoid activation function
+        return 1 / (1 + np.exp(-z))
 
     def forward(self, X):
+        # Forward pass through the network
         z = np.dot(X, self.weights[0]) + self.biases[0]
         a = self.activations[0](z)
         for i in range(1, len(self.layers)):
@@ -195,6 +206,7 @@ class ANN:
         return a
 
     def backward(self, X, y, y_hat):
+        # Backward pass through the network to calculate error
         deltas = [y_hat - y]
         for i in range(len(self.layers) - 1, 0, -1):
             delta = np.dot(deltas[-1], self.weights[i].T) * self.activations[i - 1](np.dot(X, self.weights[i - 1]) + self.biases[i - 1], derivative=True)
@@ -203,13 +215,15 @@ class ANN:
         return deltas
 
     def update(self, deltas, X, eta):
+        # Update weights and biases based on calculated error
         self.weights[0] -= eta * np.dot(X.T, deltas[0])
         self.biases[0] -= eta * np.sum(deltas[0], axis=0, keepdims=True)
         for i in range(1, len(self.layers)):
             self.weights[i] -= eta * np.dot(self.activations[i - 1](np.dot(X, self.weights[i - 1]) + self.biases[i - 1]).T, deltas[i])
             self.biases[i] -= eta * np.sum(deltas[i], axis=0, keepdims=True)
 
-    def fit(self, X, y, eta=0.0001, epochs=5000, show_curve=False):
+    def fit(self, X, y, eta=0.001, epochs=1000, show_curve=False):
+        # Train the network
         self.init_weights(X)
         mse = []
         for i in range(int(epochs)):
@@ -220,6 +234,7 @@ class ANN:
             if i % 1000 == 0:
                 print(f"Epoch: {i}, MSE: {mse[-1]}")
         if show_curve:
+            # Plot the MSE curve if show_curve is True
             plt.plot(mse)
             plt.title("MSE")
             plt.xlabel("Epoch")
@@ -227,6 +242,7 @@ class ANN:
             plt.show()
 
     def predict(self, X):
+        # Predict using the forward pass
         return self.forward(X)
 
 class MVLogisticRegression:
@@ -237,14 +253,25 @@ class MVLogisticRegression:
         self.C = C
 
     def sigmoid(self, z):
+      # This method computes the sigmoid function of the input z, which is defined as 1 / (1 + exp(-z)). 
+      # It takes in a single input z and returns the sigmoid of that value.
         return 1 / (1 + np.exp(-z))
 
     def add_intercept(self, X):
+        # This method adds an intercept term to the input feature matrix X.
         intercept = np.ones((X.shape[0], 1))
+        # An intercept term is a constant column of ones that is added to the feature matrix to allow the model to learn a bias term. It takes in the feature matrix X and returns a new feature matrix with an intercept term added to it.
         return np.concatenate((intercept, X), axis=1)
 
     def __l2_regularization(self, theta):
-        return (self.C * np.sum(theta[1:] ** 2)) / (2 * len(theta))
+        # This method computes the L2 regularization term for a given weight vector theta. 
+        return (self.C * np.sum(theta[1:] ** 2)) / (2 * len(theta)) ## L2 regularization is a penalty term that is added to the loss function to prevent overfitting.
+        # It takes in the weight vector theta and returns the L2 regularization term for that vector. 
+        # The regularization strength is controlled by the hyperparameter C.
+
+
+
+
 
     def fit(self, X, y):
         if self.fit_intercept:
@@ -276,8 +303,6 @@ class MVLogisticRegression:
         return self.sigmoid(np.dot(X, self.theta))
 
     # add the rest of the code as before
-
-
         # initialize parameters
         if self.theta is None:
             self.theta = np.zeros(X.shape[1])
@@ -324,6 +349,8 @@ labelencoder_X_1 = LabelEncoder()
 X[:, 0] = labelencoder_X_1.fit_transform(X[:, 0])
 labelencoder_X_2 = LabelEncoder()
 X[:, 1] = labelencoder_X_2.fit_transform(X[:, 1])
+
+# This class needs work, this would be great for adding random noise/features to the dataset.
 
 def make_classification(n_samples=100, n_features=20, n_informative=2,
                          n_redundant=2, n_classes=2, weights=None,
@@ -401,45 +428,49 @@ import numpy as np
 
 def classification_report(y_true, y_pred, target_names=None):
     """
-    Build a text report showing the main classification metrics.
+    This is a function that takes three inputs:
 
-    Parameters:
-    -----------
-    y_true : array-like of shape (n_samples,)
-        Ground truth (correct) target values.
-    y_pred : array-like of shape (n_samples,)
-        Estimated targets as returned by a classifier.
-    target_names : array-like of shape (n_classes,), optional (default=None)
-        List of label names to include in the report.
-
-    Returns:
-    --------
-    report : str
-        Text summary of the precision, recall, F1 score, and support for each class.
+    y_true: This should be an array-like object containing the correct target values (e.g., labels) for a set of samples.
+    y_pred: This should be an array-like object containing the predicted target values for the same set of samples. The predictions should be generated by a classifier.
+    target_names: This is an optional parameter that specifies the names of the labels that are used in the report. If it is not specified, the labels will be referred to as 'Class 0', 'Class 1', etc.
+    The function returns a text summary (as a string) that describes the performance of the classifier for each label in terms of precision, recall, F1 score, and support.
     """
 
     # Compute confusion matrix
     cm = confusion_matrix(y_true, y_pred)
 
     # Compute precision, recall, and F1 score
-    tn, fp, fn, tp = cm.ravel()
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f1_score = 2 * (precision * recall) / (precision + recall)
+    
+    # The variable cm is a confusion matrix that shows the number of true positives, true negatives, false positives, and false negatives for a classifier's predictions. 
+    tn, fp, fn, tp = cm.ravel() # This line "flattens" the matrix into a 1D array of four elements, and assigns those elements to the variables tn, fp, fn, and tp, respectively.
+    
+    # Precision is a measure of how many of the positive predictions made by the classifier are actually correct.
+    precision = tp / (tp + fp) # This line calculates precision by dividing the number of true positives by the sum of true positives and false positives.
+    
+    #  Recall is a measure of how many of the actual positive samples the classifier correctly identified. 
+    recall = tp / (tp + fn) # This line calculates recall by dividing the number of true positives by the sum of true positives and false negatives.
+    
+    #  F1 score is a measure of the harmonic mean of precision and recall. It provides a balance between these two metrics.
+    f1_score = 2 * (precision * recall) / (precision + recall) # This line calculates F1 score by first multiplying precision and recall by 2, then dividing that product by the sum of precision and recall.
 
     # Compute support for each class
-    support = np.sum(cm, axis=1)
+    support = np.sum(cm, axis=1) # This line calculates the total number of instances for each label (i.e., the support) by summing the values along each row of the confusion matrix cm.
 
     # Format the report
     if target_names is None:
-        target_names = ['Class {}'.format(i) for i in range(cm.shape[0])]
+    
+    # This line assigns default label names if no target_names are specified by creating a list of strings that contains the label name 'Class' followed by the index of the label.
+        target_names = ['Class {}'.format(i) for i in range(cm.shape[0])] # This line checks whether the target_names variable is empty or not.
+
     report = '              precision    recall  f1-score   support\n\n'
-    for i, target_name in enumerate(target_names):
-        report += '{:<14}{:8.4f}{:9.4f}{:9.4f}{:10d}\n'.format(target_name, precision[i], recall[i], f1_score[i], support[i])
-    report += '\n'
+    for i, target_name in enumerate(target_names): # This line starts a loop over each label in target_names, assigning an index value i to each label.
+
+        # This line initializes the report string by creating a table header with the columns 'precision', 'recall', 'f1-score', and 'support'.  
+        report += '{:<14}{:8.4f}{:9.4f}{:9.4f}{:10d}\n'.format(target_name, precision[i], recall[i], f1_score[i], support[i]) # This line formats the report string by adding a row of data for each label, using the label name, precision, recall, f1-score, and support values for that label.
+    report += '\n' #  This line adds a blank line at the end of the report.
 
     # Compute and add averages
-    avg_precision = np.mean(precision)
+    avg_precision = np.mean(precision) 
     avg_recall = np.mean(recall)
     avg_f1_score = np.mean(f1_score)
     avg_support = np.mean(support)
@@ -449,6 +480,8 @@ def classification_report(y_true, y_pred, target_names=None):
     return report
 
 from sklearn.metrics import accuracy_score
+
+from sklearn.metrics import confusion_matrix
 
 def main():
     # Load the churn modelling dataset
@@ -472,7 +505,7 @@ def main():
     X = np.hstack((np.ones((X.shape[0], 1)), X))
 
     # Split the data into training and test sets
-    tts = train_test_split(test_size=0.2, random_state=0)
+    tts = train_test_split(test_size=0.8, random_state=0)
     X_train, X_test, y_train, y_test = tts(X, y)
 
     # Scale the data
@@ -481,27 +514,21 @@ def main():
     X_test = sc.transform(X_test)
 
     # Train the model
-    model = MVLogisticRegression(lr=0.000001, num_iter=8000, fit_intercept=True) #                               this one works 
+    model = MVLogisticRegression(lr=0.00000001, num_iter=100000, fit_intercept=True) #                               this one works 
     model.fit(X_train, y_train)
-    y_pred = model.predict(X_test, threshold=0.9)
+    y_pred = model.predict(X_test, threshold=0.3)
 
     # Evaluate the model
     y_pred = model.predict(X_test)
     print("Accuracy:", accuracy_score(y_test, y_pred))
     print("Confusion matrix:\n", confusion_matrix(y_test, y_pred))
     
-    # Generate some sample data
-    #X, y = make_classification(n_samples=1000, n_features=10, n_classes=2, random_state=42)
-
     # Plot the residuals
     residuals = y_test - y_pred
     plt.plot(residuals)
     plt.xlabel("Observation")
     plt.ylabel("Residual")
     plt.show()
-
-    # Generate some sample data
-    #X, y = make_classification(n_samples=1000, n_features=10, n_classes=2, random_state=42)
 
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = tts(X, y)
@@ -528,3 +555,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%shell
+# jupyter nbconvert --to html /content/Copy_of_Most_up_to_date.ipynb
